@@ -61,8 +61,8 @@ names_list = ['person','bicycle', 'car', 'motorbike', 'aeroplane', 'bus', 'train
 
 
 im_ext = 'jpg'
-COCO_images = '/media/cong/娱乐/coco2017/val2017/'
-Json_addr = '/media/cong/娱乐/coco2017/annotations/instances_val2017.json'
+COCO_images = '/media/student/coco/val2014'
+Json_addr = '/media/student/coco/annotations/instances_val2014.json'
 im_num = 0
 ob_count = 0
 im_pairs = dict()
@@ -150,7 +150,7 @@ for i in range(0, len(annotation_list["annotations"])):
         else:
 
             # Copy image as im_num.jpg
-            with open(os.path.join(COCO_images, im_name + '.' + im_ext), 'rb') as rf:
+            with open(os.path.join(COCO_images, 'COCO_val2014_'+im_name + '.' + im_ext), 'rb') as rf:
                 with open(os.path.join(im_dir, str(im_num) + '.' + im_ext), 'wb') as wf:
                     for line in rf:
                         wf.write(line)
@@ -159,7 +159,7 @@ for i in range(0, len(annotation_list["annotations"])):
             # -get imsize(widht, height, depth)
 
             # Resimlerin olduğu klasör
-            im_cv2 = cv2.imread(os.path.join(COCO_images, im_name + '.' + im_ext))
+            im_cv2 = cv2.imread(os.path.join(COCO_images, 'COCO_val2014_'+im_name + '.' + im_ext))
             height, width, depth = im_cv2.shape
             if depth==2:
                 print(depth)

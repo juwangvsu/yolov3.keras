@@ -1,0 +1,168 @@
+#usage: python showImgBox.py fname
+#usage 2: python showImgbox.py images labels fname
+#	images is the folder for image, labels is the folder for label, fname is the image file name
+#tensorflow box:  ymin, xmin, ymax, xmax = box
+#yolo box: x,y,w,h 0.55 .42 .12 .58 xmin=0.49 xmax=.61 ymin=.13 ymax=71 
+
+#  visualize coco data format
+#   python showImgbox.py coco train.txt imagefilename 
+#  yolov3.keras/train.txt line format:
+#	/media/student/coco/train2014/000000350553.jpg x_min,y_min,x_max,y_max,class_id 
+#	corresponding jpg file: /media/student/coco/train2014/COCO_train2014_000000350553.jpg
+import os
+import sys
+import cv2
+import time
+import argparse
+import multiprocessing
+import numpy as np
+import tensorflow as tf
+#from matplotlib import pyplot as plt
+from object_detection.utils import label_map_util as label_map_util
+from object_detection.utils import visualization_utils as vis_util
+def runcocotest(annfn, imagefn):
+
+    image = Image.open(imagefn)
+    image_np = load_image_into_numpy_array(image)
+    cv2.imshow('cv_img_detected', image_np)
+    cv2.waitKey(5000)
+    boxes = read_cocoboxes(annfn, imagefn)
+    yoloboxes = coco2yolo_boxes(boxes)
+    yoloboxes_draw(yoloboxes,image_np)
+ 
+def coco2yolo_boxes(boxes):
+#coco box format: x_min,y_min,x_max,y_max,class_id 
+#return yolo box: x,y,w,h 0.55 .42 .12 .58 xmin=0.49 xmax=.61 ymin=.13 ymax=71 
+#yolo box x, y is the center of the box
+    yoloboxes=[]
+    for box in boxes:
+      xmin=box[0]
+      ymin=box[1]
+      xmax=box[2]
+      ymax=box[3]
+      x=(xmin+xmax)/2 
+      y=(ymin+ymax)/2 
+      w=xmax-xmin
+      h=ymax-ymin
+      yoloboxes.append([x,y,w,h])
+    return yoloboxes
+
+def runtest(imgfolder, labelfolder,image_path):
+    image = Image.open(imgfolder+image_path+'.jpg')
+    image_np = load_image_into_numpy_array(image)
+    cv2.imshow('cv_img_detected', image_np)
+    cv2.waitKey(5000)
+
+    yoloboxes = read_boxes(labelfolder+image_path+'.txt') #yolo box format, x,y,w, h (x,y is center)
+    yoloboxes_draw(yoloboxes,image_np)
+
+def yoloboxes_draw(yoloboxes,image_np):
+#input yoloboxes, convert to tensorflow box:  ymin, xmin, ymax, xmax = box
+#yolo box: x,y,w,h 0.55 .42 .12 .58 xmin=0.49 xmax=.61 ymin=.13 ymax=71 
+    tfboxes=[]
+    for i in range(len(yoloboxes)):
+      x=yoloboxes[i][0]
+      y=yoloboxes[i][1]
+      w=yoloboxes[i][2]
+      h=yoloboxes[i][3]
+      ymin =y-h/2
+      xmin =x-w/2
+      ymax =y+h/2
+      xmax =x+w/2
+      tfboxes.append([ymin, xmin, ymax, xmax])
+
+    #ugly fix to make sure at least two boxes to make visualize_box...() func work
+    if len(tfboxes)<2:
+	tfboxes.append([0,0,0,0])
+	
+    boxes = np.array(tfboxes).reshape(1, len(tfboxes), 4)
+    #boxes = np.array([y-h/2, x-w/2, y+h/2,x+w/2, 0.6,0.6,0.8,0.8]).reshape(1, 2, 4)
+    #boxes = np.array([0.13, 0.49,0.71, 0.61,0,0,0,0]).reshape(1, 2, 4)
+	# converted to tensorflow box
+    #boxes = np.array([0.1,0.1,0.5,0.5,0,0,0,0]).reshape(1, 2, 4)
+    print(boxes)
+
+    # all boxes showing the same classes for now...
+    #classes=np.array([1.0, 1.0]).reshape(1, 2)
+    classes=np.ones(len(tfboxes)).reshape(1, len(tfboxes))
+    print(classes)
+    #scores=np.array([1.0,1.0]).reshape(1, 2)
+    scores=np.ones(len(tfboxes)).reshape(1, len(tfboxes))
+    print(scores)
+    category_index = {}
+    category_index[1]={'id': 1, 'name': u'person'}
+    vis_util.visualize_boxes_and_labels_on_image_array(
+        image_np,
+        np.squeeze(boxes),
+        np.squeeze(classes).astype(np.int32),
+        np.squeeze(scores),
+        category_index,
+        use_normalized_coordinates=True,
+        line_thickness=8)
+    cv2.imshow('cv_img_detected', image_np)
+    cv2.waitKey(15000)
+    img = Image.fromarray(image_np, 'RGB')
+
+def read_cocoboxes(annfn, imagefn):
+#train.txt format: imgfilename box1 box2 ...
+#box1 format
+#x_min,y_min,x_max,y_max,class_id 
+  filepath = annfn 
+  boxes=[]
+  with open(filepath) as f:
+    lines = f.readlines()
+  #print(lines)
+  for line in lines:
+    linefields=line.split()
+    if linefileds[0].find(imagefn.split('_')[2])>0:
+      boxnum=len(linefields)-1
+      for i in range(boxnum):
+         box1=map(int, linefileds[i].split(','))
+         boxes.append(box1)
+      break
+  print('find boxes: ', boxes)
+  return boxes
+   
+def read_boxes(labelpath):
+#read tf boxes
+  filepath = labelpath
+  boxes=[]
+  with open(filepath) as f:
+    lines = f.readlines()
+  #print(lines)
+  for line in lines:
+    box=line.split()
+  #  print(box, [float(box[1]), float(box[2]), float(box[3]), float(box[4])])
+
+    boxes.append([float(box[1]), float(box[2]), float(box[3]), float(box[4])])
+  #  print(boxes)
+  print('read_boxes', boxes)
+  return boxes
+
+def load_image_into_numpy_array(image):
+  (im_width, im_height) = image.size
+  return np.array(image.getdata()).reshape(
+      (im_height, im_width, 3)).astype(np.uint8)
+from PIL import Image
+def loadimg():
+  for image_path in TEST_IMAGE_PATHS:
+    image = Image.open(image_path)
+    image_np = load_image_into_numpy_array(image)
+    #plt.imshow(image_np)
+    #plt.imshow(image)
+    print(image.size, image_np.shape)
+
+if __name__ == '__main__':
+  if len(sys.argv)>1:
+    if sys.argv[1]=='coco':
+	# this is to handle coco format, 'coco train.txt imagefilename'
+    else:
+	#
+      imgfolder=sys.argv[1];
+      labelfolder = sys.argv[2]
+      imgfilename = sys.argv[3]
+      runtest(imgfolder, labelfolder, imgfilename.split('.')[0])
+  else:
+    runtest('./', './', 'snowman') # pass the prefix of the image file, assume the label file is the same prefix.txt
+    runtest('./', './', 't_frame0000-1') # pass the prefix of the image file, assume the label file is the same prefix.txt
+

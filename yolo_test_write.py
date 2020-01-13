@@ -20,6 +20,7 @@ from yolo3.utils import letterbox_image
 from keras.utils import multi_gpu_model
 
 path = 'mAP/input/images-optional'  #待检测图片的位置
+testimgnum = 2000 # total number of image to be detected, wang hack, this is to do a quick test instead of complete entire 40000 images in val2014
 
 # 创建创建一个存储检测结果的dir
 image_result_path = 'mAP/input/image_detect_results'
@@ -225,7 +226,9 @@ if __name__ == '__main__':
     t1 = time.time()
     yolo = YOLO()   
     for filename in os.listdir(path): 
-  
+        testimgnum=testimgnum-1
+        if testimgnum<0:
+           break 
         image_path = path+'/'+filename
         portion = os.path.split(image_path)
         txt_path =txt_result_path + '/%s.txt'%portion[1].split('.')[0]
